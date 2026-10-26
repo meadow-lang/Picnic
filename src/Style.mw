@@ -20,8 +20,7 @@ use Std.Collections.Vector as V
 -- How wide a column may be.
 @derive(PartialEq)
 @pub data ColumnConstraint
-  = -- Not shown at all.
-  Hidden
+  = Hidden -- Not shown at all.
   -- As wide as its widest content, whatever the table's width.
   | ContentWidth
   -- Exactly this wide, padding included.
@@ -35,8 +34,7 @@ use Std.Collections.Vector as V
 
 -- How content is fitted into the table's width.
 @pub data ContentArrangement
-  = -- Every column as wide as its content, whatever the table's width.
-  Disabled
+  = Disabled -- Every column as wide as its content, whatever the table's width.
   -- Content is wrapped to keep the table within its width.
   | Dynamic
   -- As `Dynamic`, and the table is widened to fill its width.
