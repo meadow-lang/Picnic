@@ -59,10 +59,7 @@ fun delimiterOf (t : Table) (col : Column) (c : Cell) =
   | None ->
       match col.delimiter with
       | Just d -> d
-      | None ->
-          match t.delimiter with
-          | Just d -> d
-          | None -> ' '
+      | None -> match t.delimiter with | Just d -> d | None -> ' '
 
 -- --- constraints --------------------------------------------------------------------------
 
@@ -93,20 +90,20 @@ fun upperOf t constraint visible =
 fun evaluate t visible infos (col : Column) maxContentWidth =
   let decided =
     match col.constraint with
-    | Just ColumnConstraint.ContentWidth -> V.set infos col.index (Just (displayInfo col maxContentWidth))
+    | Just ColumnConstraint.ContentWidth ->
+        V.set infos col.index (Just (displayInfo col maxContentWidth))
     | Just (ColumnConstraint.Absolute w) ->
         (match absoluteValue t w visible with
          | Just n -> V.set infos col.index (Just (displayInfo col (absoluteWidthWithPadding col n)))
          | None -> infos)
     | Just ColumnConstraint.Hidden -> V.set infos col.index (Just (displayInfo col maxContentWidth))
     | _ -> infos
-  in
-  match lowerOf t col.constraint visible with
-  | Just minWidth ->
-      if maxContentWidth + paddingWidth col <= minWidth
-      then V.set decided col.index (Just (displayInfo col (absoluteWidthWithPadding col minWidth)))
-      else decided
-  | None -> decided
+  in match lowerOf t col.constraint visible with
+     | Just minWidth ->
+         if maxContentWidth + paddingWidth col <= minWidth then
+           V.set decided col.index (Just (displayInfo col (absoluteWidthWithPadding col minWidth)))
+         else decided
+     | None -> decided
 
 fun isDecided infos (col : Column) = V.getOr None infos col.index != None
 
@@ -115,24 +112,27 @@ fun isDecided infos (col : Column) = V.getOr None infos col.index != None
 fun arrangeDisabled t infos visible maxWidths =
   V.foldl
     (\acc (col : Column) ->
-      if isDecided acc col
-      then acc
+      if isDecided acc col then acc
       else
         let w = V.getOr 0 maxWidths col.index in
         let capped =
           match upperOf t col.constraint visible with
           | Just maxWidth -> if maxWidth < w then absoluteWidthWithPadding col maxWidth else w
           | None -> w
-        in
-        V.set acc col.index (Just (displayInfo col capped)))
+        in V.set acc col.index (Just (displayInfo col capped)))
     infos
     t.columns
 
 -- --- within a width -----------------------------------------------------------------------
 
-record Arrangement = { infos : [Maybe DisplayInfo], remainingWidth : Int, remainingColumns : Int }
+record Arrangement = {
+  infos : [Maybe DisplayInfo],
+  remainingWidth : Int,
+  remainingColumns : Int
+}
 
-fun averageSpace (s : Arrangement) = if s.remainingColumns == 0 then 0 else s.remainingWidth / s.remainingColumns
+fun averageSpace (s : Arrangement) =
+  if s.remainingColumns == 0 then 0 else s.remainingWidth / s.remainingColumns
 
 -- `s` with `col` fixed at `w`, and whether any column is left.
 fun fixColumn (s : Arrangement) (col : Column) w =
@@ -142,17 +142,16 @@ fun fixColumn (s : Arrangement) (col : Column) w =
       remainingWidth = sat s.remainingWidth w,
       remainingColumns = s.remainingColumns - 1
     }
-  in
-  (s2, s2.remainingColumns > 0)
+  in (s2, s2.remainingColumns > 0)
 
 -- How many of `infos` are decided and shown.
 fun countShown infos =
-  let shown = \m ->
-    match m with
-    | Just (i : DisplayInfo) -> not i.isHidden
-    | None -> False
-  in
-  V.len (V.filter shown infos)
+  let shown =
+    \m ->
+      match m with
+      | Just (i : DisplayInfo) -> not i.isHidden
+      | None -> False
+  in V.len (V.filter shown infos)
 
 fun countUndecidedVisible visible infos = visible - countShown infos
 
@@ -172,8 +171,11 @@ fun startState (t : Table) infos visible tableWidth =
         | None -> w)
       afterPadding
       infos
-  in
-  Arrangement { infos = infos, remainingWidth = afterFixed, remainingColumns = countUndecidedVisible visible infos }
+  in Arrangement {
+       infos = infos,
+       remainingWidth = afterFixed,
+       remainingColumns = countUndecidedVisible visible infos
+     }
 
 -- One pass of `step` over the undecided columns, in order. `step` gives the
 -- new state, whether the pass should stop, and whether it fixed a column.
@@ -183,63 +185,57 @@ fun passOver (t : Table) step s0 =
     match V.get t.columns k with
     | None -> (s, found)
     | Just col ->
-        if isDecided s.infos col
-        then go (k + 1) s found
+        if isDecided s.infos col then go (k + 1) s found
         else
           match step s col with
           | (s2, stop, fixed) -> if stop then (s2, found) else go (k + 1) s2 (found or fixed)
-  in
-  go 0 s0 False
+  in go 0 s0 False
 
 -- Fixes columns whose lower boundary is above the average space.
 fun enforceLowerBoundaries t visible s0 =
-  let step = \(s : Arrangement) (col : Column) ->
-    match lowerOf t col.constraint visible with
-    | None -> (s, False, False)
-    | Just minWidth ->
-        if averageSpace s >= minWidth
-        then (s, False, False)
-        else
-          match fixColumn s col (absoluteWidthWithPadding col minWidth) with
-          | (s2, more) -> (s2, not more, True)
+  let step =
+    \(s : Arrangement) (col : Column) ->
+      match lowerOf t col.constraint visible with
+      | None -> (s, False, False)
+      | Just minWidth ->
+          if averageSpace s >= minWidth then (s, False, False)
+          else
+            match fixColumn s col (absoluteWidthWithPadding col minWidth) with
+            | (s2, more) -> (s2, not more, True)
   in
   let rec loop s =
     match passOver t step s with
     | (s2, again) -> if again then loop s2 else s2
-  in
-  loop s0
+  in loop s0
 
 -- Fixes columns that fit into the average space, or whose upper boundary
 -- does.
 fun fitIntoAverage (t : Table) visible maxWidths s0 =
-  let step = \(s : Arrangement) (col : Column) ->
-    let maxColumnWidth = V.getOr 0 maxWidths col.index in
-    let byUpper =
-      match upperOf t col.constraint visible with
-      | Just maxWidth ->
-          let averageWithPadding = averageSpace s + paddingWidth col in
-          if maxWidth <= averageWithPadding and maxColumnWidth + paddingWidth col >= maxWidth
-          then Just (fixColumn s col (absoluteWidthWithPadding col maxWidth))
-          else None
-      | None -> None
-    in
-    match byUpper with
-    | Just (s2, more) -> (s2, not more, more)
-    | None ->
-        if maxColumnWidth <= averageSpace s
-        then
-          (match fixColumn s col maxColumnWidth with
-           | (s2, more) -> (s2, not more, more))
-        else (s, False, False)
+  let step =
+    \(s : Arrangement) (col : Column) ->
+      let maxColumnWidth = V.getOr 0 maxWidths col.index in
+      let byUpper =
+        match upperOf t col.constraint visible with
+        | Just maxWidth ->
+            let averageWithPadding = averageSpace s + paddingWidth col in
+            if maxWidth <= averageWithPadding and maxColumnWidth + paddingWidth col >= maxWidth then
+              Just (fixColumn s col (absoluteWidthWithPadding col maxWidth))
+            else None
+        | None -> None
+      in match byUpper with
+         | Just (s2, more) -> (s2, not more, more)
+         | None ->
+             if maxColumnWidth <= averageSpace s then
+               (match fixColumn s col maxColumnWidth with
+                | (s2, more) -> (s2, not more, more))
+             else (s, False, False)
   in
   let rec loop (s : Arrangement) =
-    if s.remainingColumns == 0 or averageSpace s == 0
-    then s
+    if s.remainingColumns == 0 or averageSpace s == 0 then s
     else
       match passOver t step s with
       | (s2, again) -> if again then loop s2 else s2
-  in
-  loop s0
+  in loop s0
 
 -- The widest line of column `col` once split to `average` columns.
 fun longestLineAfterSplit average (col : Column) (t : Table) =
@@ -251,36 +247,34 @@ fun longestLineAfterSplit average (col : Column) (t : Table) =
       | Just (c : Cell) ->
           let d = delimiterOf t col c in
           V.foldl
-          (\l line ->
-            let w = measureTextWidth line in
-            if w > average
-            then
-              let wider = \l2 part -> let pw = measureTextWidth part in if pw > l2 then pw else l2 in
-              V.foldl wider l (splitLine line info.contentWidth d)
-            else if w > l
-            then w
-            else l)
-          longest
-          c.content)
+            (\l line ->
+              let w = measureTextWidth line in
+              if w > average then
+                let wider =
+                  \l2 part -> let pw = measureTextWidth part in if pw > l2 then pw else l2
+                in V.foldl wider l (splitLine line info.contentWidth d)
+              else if w > l then w
+              else l)
+            longest
+            c.content)
     0
     (columnCellsWithHeader col.index t)
 
 -- Fixes columns that, split to the average space, leave some of it free.
 fun optimizeAfterSplit t s0 =
-  let step = \(s : Arrangement) (col : Column) ->
-    let average = averageSpace s in
-    let longest = longestLineAfterSplit average col t in
-    if sat average longest >= 3
-    then
-      match fixColumn s col (minInt longest 65535) with
-      | (s2, more) -> (s2, not more, more)
-    else (s, False, False)
+  let step =
+    \(s : Arrangement) (col : Column) ->
+      let average = averageSpace s in
+      let longest = longestLineAfterSplit average col t in
+      if sat average longest >= 3 then
+        match fixColumn s col (minInt longest 65535) with
+        | (s2, more) -> (s2, not more, more)
+      else (s, False, False)
   in
   let rec loop s =
     match passOver t step s with
     | (s2, again) -> if again then loop s2 else s2
-  in
-  loop s0
+  in loop s0
 
 -- `width` split into `count` parts as evenly as can be, the larger first.
 fun evenWidths width count =
@@ -291,47 +285,51 @@ fun evenWidths width count =
 -- Spreads the remaining width over the visible columns.
 fun useFullWidth (s : Arrangement) =
   let visible = countShown s.infos in
-  if visible == 0
-  then s
+  if visible == 0 then s
   else
     let widths = evenWidths s.remainingWidth visible in
-    let step = \acc m ->
-      match acc with
-      | (out, k) ->
-          match m with
-          | Just (i : DisplayInfo) ->
-              if i.isHidden
-              then (V.pushBack out m, k)
-              else (V.pushBack out (Just { i | contentWidth = i.contentWidth + V.getOr 0 widths k }), k + 1)
-          | None -> (V.pushBack out m, k)
-    in
-    { s | infos = fst (V.foldl step (V.empty, 0) s.infos) }
+    let step =
+      \acc m ->
+        match acc with
+        | (out, k) ->
+            match m with
+            | Just (i : DisplayInfo) ->
+                if i.isHidden then (V.pushBack out m, k)
+                else
+                  (
+                    V.pushBack
+                      out
+                      (Just { i | contentWidth = i.contentWidth + V.getOr 0 widths k }),
+                    k + 1
+                  )
+            | None -> (V.pushBack out m, k)
+    in { s | infos = fst (V.foldl step (V.empty, 0) s.infos) }
 
 -- Gives the undecided columns equal shares of what is left.
 fun distributeRemaining (t : Table) (s : Arrangement) =
   let widths = evenWidths s.remainingWidth s.remainingColumns in
-  let step = \acc (col : Column) ->
-    match acc with
-    | (infos, k) ->
-        if isDecided infos col
-        then acc
-        else (V.set infos col.index (Just (displayInfo col (V.getOr 0 widths k))), k + 1)
-  in
-  { s | infos = fst (V.foldl step (s.infos, 0) t.columns) }
+  let step =
+    \acc (col : Column) ->
+      match acc with
+      | (infos, k) ->
+          if isDecided infos col then acc
+          else (V.set infos col.index (Just (displayInfo col (V.getOr 0 widths k))), k + 1)
+  in { s | infos = fst (V.foldl step (s.infos, 0) t.columns) }
 
 fun arrangeDynamic (t : Table) infos visible tableWidth maxWidths =
   let s0 = startState t infos visible tableWidth in
   let s1 = if s0.remainingColumns > 0 then enforceLowerBoundaries t visible s0 else s0 in
   let s2 = fitIntoAverage t visible maxWidths s1 in
   let (s3 : Arrangement) = if s2.remainingColumns > 0 then optimizeAfterSplit t s2 else s2 in
-  if s3.remainingColumns == 0
-  then
+  if s3.remainingColumns == 0 then
     (match t.arrangement with
      | ContentArrangement.DynamicFullWidth -> if s3.remainingWidth > 0 then useFullWidth s3 else s3
      | _ -> s3).infos
   else
-    let s4 = if s3.remainingWidth < s3.remainingColumns then { s3 | remainingWidth = s3.remainingColumns } else s3 in
-    (distributeRemaining t s4).infos
+    let s4 =
+      if s3.remainingWidth < s3.remainingColumns then { s3 | remainingWidth = s3.remainingColumns }
+      else s3
+    in (distributeRemaining t s4).infos
 
 -- How each column is drawn, in order.
 @pub(pkg) fun arrangeContent (t : Table) =
@@ -340,7 +338,8 @@ fun arrangeDynamic (t : Table) infos visible tableWidth maxWidths =
   let constrained =
     V.foldl
       (\infos (col : Column) ->
-        if col.constraint == None then infos else evaluate t visible infos col (V.getOr 0 maxWidths col.index))
+        if col.constraint == None then infos
+        else evaluate t visible infos col (V.getOr 0 maxWidths col.index))
       (V.replicate (V.len t.columns) None)
       t.columns
   in
@@ -351,11 +350,4 @@ fun arrangeDynamic (t : Table) infos visible tableWidth maxWidths =
         match t.arrangement with
         | ContentArrangement.Disabled -> arrangeDisabled t constrained visible maxWidths
         | _ -> arrangeDynamic t constrained visible tableWidth maxWidths
-  in
-  V.foldl
-    (\out m ->
-      match m with
-      | Just i -> V.pushBack out i
-      | None -> out)
-    V.empty
-    infos
+  in V.foldl (\out m -> match m with | Just i -> V.pushBack out i | None -> out) V.empty infos
