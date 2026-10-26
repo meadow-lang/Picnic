@@ -82,12 +82,16 @@ fun autogenerateColumns (r : Row) (t : Table) =
 
 -- The constraints, in order, for as many columns as there are of both.
 @pub fun setConstraints constraints (t : Table) =
-  let set = \k (c : Column) ->
-    match V.get constraints k with
-    | Just constraint -> setConstraint constraint c
-    | None -> c
-  in
-  { t | columns = V.map (\k -> set k (V.getOr (column k) t.columns k)) (V.range 0 (V.len t.columns)) }
+  let set =
+    \k (c : Column) ->
+      match V.get constraints k with
+      | Just constraint -> setConstraint constraint c
+      | None -> c
+  in {
+       t
+         | columns =
+           V.map (\k -> set k (V.getOr (column k) t.columns k)) (V.range 0 (V.len t.columns))
+     }
 
 @pub fun loadStyle s (t : Table) = { t | style = s }
 
@@ -104,9 +108,7 @@ fun autogenerateColumns (r : Row) (t : Table) =
 -- `t` with a column for every cell of every row.
 @pub fun discoverColumns (t : Table) = V.foldl (\acc r -> autogenerateColumns r acc) t t.rows
 
-@pub fun columnCount t =
-  let (d : Table) = discoverColumns t in
-  V.len d.columns
+@pub fun columnCount t = let (d : Table) = discoverColumns t in V.len d.columns
 
 @pub fun getRow k (t : Table) = V.get t.rows k
 
@@ -126,24 +128,23 @@ fun autogenerateColumns (r : Row) (t : Table) =
     match t.header with
     | Just (h : Row) -> V.get h.cells k
     | None -> None
-  in
-  V.pushFront (columnCells k t) head
+  in V.pushFront (columnCells k t) head
 
 -- The width of each column's widest content, and at least 1.
 @pub fun columnMaxContentWidths (t : Table) =
-  let widen = \widths (r : Row) ->
-    V.foldl
-      (\acc k ->
-        let w = V.getOr 0 (maxContentWidths r) k in
-        let w1 = if w < 1 then 1 else w in
-        if V.getOr 0 acc k < w1 then V.set acc k w1 else acc)
-      widths
-      (V.range 0 (cellCount r))
+  let widen =
+    \widths (r : Row) ->
+      V.foldl
+        (\acc k ->
+          let w = V.getOr 0 (maxContentWidths r) k in
+          let w1 = if w < 1 then 1 else w in
+          if V.getOr 0 acc k < w1 then V.set acc k w1 else acc)
+        widths
+        (V.range 0 (cellCount r))
   in
   let start = V.replicate (V.len t.columns) 0 in
   let withHeader =
     match t.header with
     | Just h -> widen start h
     | None -> start
-  in
-  V.foldl widen withHeader t.rows
+  in V.foldl widen withHeader t.rows

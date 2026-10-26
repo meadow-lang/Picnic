@@ -19,9 +19,8 @@ use Std.Collections.Vector as V
 
 -- How wide a column may be.
 @derive(PartialEq)
-@pub data ColumnConstraint =
-  -- Not shown at all.
-  Hidden
+@pub data ColumnConstraint
+  = Hidden -- Not shown at all.
   -- As wide as its widest content, whatever the table's width.
   | ContentWidth
   -- Exactly this wide, padding included.
@@ -34,9 +33,8 @@ use Std.Collections.Vector as V
   | Boundaries Width Width
 
 -- How content is fitted into the table's width.
-@pub data ContentArrangement =
-  -- Every column as wide as its content, whatever the table's width.
-  Disabled
+@pub data ContentArrangement
+  = Disabled -- Every column as wide as its content, whatever the table's width.
   -- Content is wrapped to keep the table within its width.
   | Dynamic
   -- As `Dynamic`, and the table is widened to fill its width.
@@ -44,8 +42,8 @@ use Std.Collections.Vector as V
 
 -- A colour for a cell's text or background.
 @derive(PartialEq)
-@pub data Color =
-  Reset
+@pub data Color
+  = Reset
   | Black
   | DarkGrey
   | Red
@@ -67,8 +65,8 @@ use Std.Collections.Vector as V
 
 -- A text attribute for a cell.
 @derive(PartialEq)
-@pub data Attribute =
-  Reset
+@pub data Attribute
+  = Reset
   | Bold
   | Dim
   | Italic
@@ -99,34 +97,15 @@ use Std.Collections.Vector as V
 
 -- Every attribute, in the order their sequences are written.
 @pub def allAttributes =
-  [ Attribute.Reset,
-    Attribute.Bold,
-    Attribute.Dim,
-    Attribute.Italic,
-    Attribute.Underlined,
-    Attribute.DoubleUnderlined,
-    Attribute.Undercurled,
-    Attribute.Underdotted,
-    Attribute.Underdashed,
-    Attribute.SlowBlink,
-    Attribute.RapidBlink,
-    Attribute.Reverse,
-    Attribute.Hidden,
-    Attribute.CrossedOut,
-    Attribute.Fraktur,
-    Attribute.NoBold,
-    Attribute.NormalIntensity,
-    Attribute.NoItalic,
-    Attribute.NoUnderline,
-    Attribute.NoBlink,
-    Attribute.NoReverse,
-    Attribute.NoHidden,
-    Attribute.NotCrossedOut,
-    Attribute.Framed,
-    Attribute.Encircled,
-    Attribute.OverLined,
-    Attribute.NotFramedOrEncircled,
-    Attribute.NotOverLined ]
+  [
+    Attribute.Reset, Attribute.Bold, Attribute.Dim, Attribute.Italic, Attribute.Underlined,
+    Attribute.DoubleUnderlined, Attribute.Undercurled, Attribute.Underdotted, Attribute.Underdashed,
+    Attribute.SlowBlink, Attribute.RapidBlink, Attribute.Reverse, Attribute.Hidden,
+    Attribute.CrossedOut, Attribute.Fraktur, Attribute.NoBold, Attribute.NormalIntensity,
+    Attribute.NoItalic, Attribute.NoUnderline, Attribute.NoBlink, Attribute.NoReverse,
+    Attribute.NoHidden, Attribute.NotCrossedOut, Attribute.Framed, Attribute.Encircled,
+    Attribute.OverLined, Attribute.NotFramedOrEncircled, Attribute.NotOverLined
+  ]
 
 -- The SGR parameter that turns the attribute on.
 @pub fun attributeSgr a =
@@ -200,21 +179,33 @@ fun colorCode c =
 -- The characters of a horizontal line: its left end, what fills it, where it
 -- meets a column divider, and its right end. `None` draws a space, or nothing
 -- where the line's part is not drawn at all.
-@pub record LineStyle = { left : Maybe Char, fill : Maybe Char, junction : Maybe Char, right : Maybe Char }
+@pub record LineStyle = {
+  left : Maybe Char,
+  fill : Maybe Char,
+  junction : Maybe Char,
+  right : Maybe Char
+}
 
 -- The characters around content: the left border, the column divider and the
 -- right border.
-@pub record ContentLineStyle = { left : Maybe Char, junction : Maybe Char, right : Maybe Char }
+@pub record ContentLineStyle = {
+  left : Maybe Char,
+  junction : Maybe Char,
+  right : Maybe Char
+}
 
-@pub fun lineStyle l f j r = LineStyle { left = Just l, fill = Just f, junction = Just j, right = Just r }
+@pub fun lineStyle l f j r =
+  LineStyle { left = Just l, fill = Just f, junction = Just j, right = Just r }
 
 @pub def noLine = LineStyle { left = None, fill = None, junction = None, right = None }
 
-@pub fun contentLineStyle l j r = ContentLineStyle { left = Just l, junction = Just j, right = Just r }
+@pub fun contentLineStyle l j r =
+  ContentLineStyle { left = Just l, junction = Just j, right = Just r }
 
 @pub def noContentLine = ContentLineStyle { left = None, junction = None, right = None }
 
-fun isVisible (l : LineStyle) = l.left != None or l.fill != None or l.junction != None or l.right != None
+fun isVisible (l : LineStyle) =
+  l.left != None or l.fill != None or l.junction != None or l.right != None
 
 -- Every line of a table.
 @pub record TableStyle = {
@@ -241,19 +232,21 @@ fun isVisible (l : LineStyle) = l.left != None or l.fill != None or l.junction !
 @pub fun withRoundedCorners (s : TableStyle) =
   let top = s.topBorder in
   let bottom = s.bottomBorder in
-  { s |
-    topBorder = { top | left = Just '╭', right = Just '╮' },
-    bottomBorder = { bottom | left = Just '╰', right = Just '╯' } }
+  {
+    s | topBorder = { top | left = Just '╭', right = Just '╮' },
+    bottomBorder = { bottom | left = Just '╰', right = Just '╯' }
+  }
 
 -- `s` with solid lines between columns and rows.
 @pub fun withSolidInnerBorders (s : TableStyle) =
   let header = s.headerLines in
   let content = s.contentLines in
   let separator = s.rowSeparator in
-  { s |
-    headerLines = { header | junction = Just '│' },
+  {
+    s | headerLines = { header | junction = Just '│' },
     contentLines = { content | junction = Just '│' },
-    rowSeparator = { separator | fill = Just '─' } }
+    rowSeparator = { separator | fill = Just '─' }
+  }
 
 @pub(pkg) fun hasTopBorder (s : TableStyle) = isVisible s.topBorder
 
@@ -282,79 +275,88 @@ fun contentParts (s : TableStyle) = [s.headerLines, s.contentLines]
 -- --- presets ------------------------------------------------------------------------------
 
 @pub def asciiFull =
-  { tableStyle |
-    topBorder = lineStyle '+' '-' '+' '+',
+  {
+    tableStyle | topBorder = lineStyle '+' '-' '+' '+',
     headerLines = contentLineStyle '|' '|' '|',
     headerSeparator = lineStyle '+' '=' '=' '+',
     contentLines = contentLineStyle '|' '|' '|',
     rowSeparator = lineStyle '|' '-' '+' '|',
-    bottomBorder = lineStyle '+' '-' '+' '+' }
+    bottomBorder = lineStyle '+' '-' '+' '+'
+  }
 
 @pub def asciiFullCondensed = { asciiFull | rowSeparator = noLine }
 
 @pub def asciiNoBorders =
-  { tableStyle |
-    headerLines = { noContentLine | junction = Just '|' },
+  {
+    tableStyle | headerLines = { noContentLine | junction = Just '|' },
     headerSeparator = { noLine | fill = Just '=', junction = Just '=' },
     contentLines = { noContentLine | junction = Just '|' },
-    rowSeparator = { noLine | fill = Just '-', junction = Just '+' } }
+    rowSeparator = { noLine | fill = Just '-', junction = Just '+' }
+  }
 
 @pub def asciiBordersOnly =
-  { tableStyle |
-    topBorder = lineStyle '+' '-' '-' '+',
+  {
+    tableStyle | topBorder = lineStyle '+' '-' '-' '+',
     headerLines = { noContentLine | left = Just '|', right = Just '|' },
     headerSeparator = lineStyle '+' '=' '=' '+',
     contentLines = { noContentLine | left = Just '|', right = Just '|' },
     rowSeparator = { noLine | left = Just '|', right = Just '|' },
-    bottomBorder = lineStyle '+' '-' '-' '+' }
+    bottomBorder = lineStyle '+' '-' '-' '+'
+  }
 
 @pub def asciiBordersOnlyCondensed = { asciiBordersOnly | rowSeparator = noLine }
 
 @pub def asciiHorizontalOnly =
-  { tableStyle |
-    topBorder = { noLine | fill = Just '-', junction = Just '-' },
+  {
+    tableStyle | topBorder = { noLine | fill = Just '-', junction = Just '-' },
     headerSeparator = { noLine | fill = Just '=', junction = Just '=' },
     rowSeparator = { noLine | fill = Just '-', junction = Just '-' },
-    bottomBorder = { noLine | fill = Just '-', junction = Just '-' } }
+    bottomBorder = { noLine | fill = Just '-', junction = Just '-' }
+  }
 
 @pub def asciiMarkdown =
-  { tableStyle |
-    headerLines = contentLineStyle '|' '|' '|',
+  {
+    tableStyle | headerLines = contentLineStyle '|' '|' '|',
     headerSeparator = lineStyle '|' '-' '|' '|',
-    contentLines = contentLineStyle '|' '|' '|' }
+    contentLines = contentLineStyle '|' '|' '|'
+  }
 
 @pub def utf8Full =
-  { tableStyle |
-    topBorder = lineStyle '┌' '─' '┬' '┐',
+  {
+    tableStyle | topBorder = lineStyle '┌' '─' '┬' '┐',
     headerLines = contentLineStyle '│' '┆' '│',
     headerSeparator = lineStyle '╞' '═' '╪' '╡',
     contentLines = contentLineStyle '│' '┆' '│',
     rowSeparator = lineStyle '├' '╌' '┼' '┤',
-    bottomBorder = lineStyle '└' '─' '┴' '┘' }
+    bottomBorder = lineStyle '└' '─' '┴' '┘'
+  }
 
 @pub def utf8FullCondensed = { utf8Full | rowSeparator = noLine }
 
 @pub def utf8NoBorders =
-  { tableStyle |
-    headerLines = { noContentLine | junction = Just '┆' },
+  {
+    tableStyle | headerLines = { noContentLine | junction = Just '┆' },
     headerSeparator = { noLine | fill = Just '═', junction = Just '╪' },
     contentLines = { noContentLine | junction = Just '┆' },
-    rowSeparator = { noLine | fill = Just '╌', junction = Just '┼' } }
+    rowSeparator = { noLine | fill = Just '╌', junction = Just '┼' }
+  }
 
 @pub def utf8BordersOnly =
-  { tableStyle |
-    topBorder = lineStyle '┌' '─' '─' '┐',
+  {
+    tableStyle | topBorder = lineStyle '┌' '─' '─' '┐',
     headerLines = { noContentLine | left = Just '│', right = Just '│' },
     headerSeparator = lineStyle '╞' '═' '═' '╡',
     contentLines = { noContentLine | left = Just '│', right = Just '│' },
-    bottomBorder = lineStyle '└' '─' '─' '┘' }
+    bottomBorder = lineStyle '└' '─' '─' '┘'
+  }
 
 @pub def utf8HorizontalOnly =
-  { tableStyle |
-    topBorder = { noLine | fill = Just '─', junction = Just '─' },
+  {
+    tableStyle | topBorder = { noLine | fill = Just '─', junction = Just '─' },
     headerSeparator = { noLine | fill = Just '═', junction = Just '═' },
     rowSeparator = { noLine | fill = Just '─', junction = Just '─' },
-    bottomBorder = { noLine | fill = Just '─', junction = Just '─' } }
+    bottomBorder = { noLine | fill = Just '─', junction = Just '─' }
+  }
 
 -- No lines at all.
 @pub def nothing = tableStyle

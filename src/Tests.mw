@@ -26,8 +26,9 @@ use Picnic.Render
 
 @cfg(test)
 fun num i n =
-  let rec go k acc = if k >= n then acc else go (k + 1) (acc * 64 + (toInt (stringByteAt cases (i + k)) - 48)) in
-  (go 0 0, i + n)
+  let rec go k acc =
+    if k >= n then acc else go (k + 1) (acc * 64 + (toInt (stringByteAt cases (i + k)) - 48))
+  in (go 0 0, i + n)
 
 @cfg(test)
 fun str i =
@@ -35,9 +36,7 @@ fun str i =
   (stringSlice cases (i + 3) (i + 3 + len), i + 3 + len)
 
 @cfg(test)
-fun flag i =
-  match num i 1 with
-  | (n, next) -> (n == 1, next)
+fun flag i = match num i 1 with | (n, next) -> (n == 1, next)
 
 @cfg(test)
 fun charAt i =
@@ -48,48 +47,27 @@ fun charAt i =
 @cfg(test)
 fun maybeAt i f =
   match flag i with
-  | (True, next) ->
-      (match f next with
-       | (x, after) -> (Just x, after))
+  | (True, next) -> (match f next with | (x, after) -> (Just x, after))
   | (False, next) -> (None, next)
 
 @cfg(test)
 def namedColors =
-  [ Color.Reset,
-    Color.Black,
-    Color.DarkGrey,
-    Color.Red,
-    Color.DarkRed,
-    Color.Green,
-    Color.DarkGreen,
-    Color.Yellow,
-    Color.DarkYellow,
-    Color.Blue,
-    Color.DarkBlue,
-    Color.Magenta,
-    Color.DarkMagenta,
-    Color.Cyan,
-    Color.DarkCyan,
-    Color.White,
-    Color.Grey ]
+  [
+    Color.Reset, Color.Black, Color.DarkGrey, Color.Red, Color.DarkRed, Color.Green,
+    Color.DarkGreen, Color.Yellow, Color.DarkYellow, Color.Blue, Color.DarkBlue, Color.Magenta,
+    Color.DarkMagenta, Color.Cyan, Color.DarkCyan, Color.White, Color.Grey
+  ]
 
 @cfg(test)
 def alignments = [CellAlignment.AlignLeft, CellAlignment.AlignRight, CellAlignment.AlignCenter]
 
 @cfg(test)
 def presetStyles =
-  [ asciiFull,
-    asciiFullCondensed,
-    asciiNoBorders,
-    asciiBordersOnly,
-    asciiBordersOnlyCondensed,
-    asciiHorizontalOnly,
-    asciiMarkdown,
-    utf8Full,
-    utf8FullCondensed,
-    utf8NoBorders,
-    utf8BordersOnly,
-    utf8HorizontalOnly ]
+  [
+    asciiFull, asciiFullCondensed, asciiNoBorders, asciiBordersOnly, asciiBordersOnlyCondensed,
+    asciiHorizontalOnly, asciiMarkdown, utf8Full, utf8FullCondensed, utf8NoBorders, utf8BordersOnly,
+    utf8HorizontalOnly
+  ]
 
 @cfg(test)
 fun readColor i =
@@ -134,31 +112,27 @@ fun readCell i =
     | None -> c3
   in
   let rec attrs k at c =
-    if k >= fst count
-    then (c, at)
+    if k >= fst count then (c, at)
     else
       match num at 1 with
       | (a, next) -> attrs (k + 1) next (addAttribute (V.getOr Attribute.Reset allAttributes a) c)
-  in
-  attrs 0 (snd count) c4
+  in attrs 0 (snd count) c4
 
 @cfg(test)
 fun readRow i =
   let height = maybeAt i (\at -> num at 1) in
   let count = num (snd height) 1 in
   let rec cells k at acc =
-    if k >= fst count
-    then (acc, at)
+    if k >= fst count then (acc, at)
     else
       match readCell at with
       | (c, next) -> cells (k + 1) next (V.pushBack acc c)
-  in
-  match cells 0 (snd count) V.empty with
-  | (cs, next) ->
-      let r = row cs in
-      match fst height with
-      | Just h -> (setMaxHeight h r, next)
-      | None -> (r, next)
+  in match cells 0 (snd count) V.empty with
+     | (cs, next) ->
+         let r = row cs in
+         match fst height with
+         | Just h -> (setMaxHeight h r, next)
+         | None -> (r, next)
 
 @cfg(test)
 fun readWidth i =
@@ -166,9 +140,7 @@ fun readWidth i =
   | (True, next) ->
       (match num next 2 with
        | (p, after) -> (Width.Percentage p, after))
-  | (False, next) ->
-      match num next 2 with
-      | (w, after) -> (Width.Fixed w, after)
+  | (False, next) -> match num next 2 with | (w, after) -> (Width.Fixed w, after)
 
 @cfg(test)
 fun readConstraint i =
@@ -225,15 +197,13 @@ fun readStyle i =
   let s1 = if fst rounded then withRoundedCorners base else base in
   let s2 = if fst solid then withSolidInnerBorders s1 else s1 in
   let rec go k at s =
-    if k >= fst count
-    then (s, at)
+    if k >= fst count then (s, at)
     else
       let part = num at 1 in
       let slot = num (snd part) 1 in
       let value = maybeAt (snd slot) charAt in
       go (k + 1) (snd value) (override s (fst part) (fst slot) (fst value))
-  in
-  go 0 (snd count) s2
+  in go 0 (snd count) s2
 
 @cfg(test)
 fun readColumnOp i t =
@@ -249,7 +219,11 @@ fun readColumnOp i t =
        | (d, after) -> (updateColumn k (setColumnDelimiter d) t, after))
   | (2, next) ->
       (match num next 1 with
-       | (a, after) -> (updateColumn k (setCellAlignment (V.getOr CellAlignment.AlignLeft alignments a)) t, after))
+       | (a, after) ->
+           (
+             updateColumn k (setCellAlignment (V.getOr CellAlignment.AlignLeft alignments a)) t,
+             after
+           ))
   | (3, next) ->
       (match readConstraint next with
        | (c, after) -> (updateColumn k (setConstraint c) t, after))
@@ -259,13 +233,11 @@ fun readColumnOp i t =
 @cfg(test)
 fun times n i x step =
   let rec go k at acc =
-    if k >= n
-    then (acc, at)
+    if k >= n then (acc, at)
     else
       match step at acc with
       | (acc2, next) -> go (k + 1) next acc2
-  in
-  go 0 i x
+  in go 0 i x
 
 @cfg(test)
 fun readTable i =
@@ -276,17 +248,15 @@ fun readTable i =
   let indicator = maybeAt (snd d) str in
   let styled = flag (snd indicator) in
   let textOnly = flag (snd styled) in
-  let arrangements = [ContentArrangement.Disabled, ContentArrangement.Dynamic, ContentArrangement.DynamicFullWidth] in
+  let arrangements =
+    [ContentArrangement.Disabled, ContentArrangement.Dynamic, ContentArrangement.DynamicFullWidth]
+  in
   let t0 =
     table
       |> loadStyle (fst style)
       |> setContentArrangement (V.getOr ContentArrangement.Disabled arrangements (fst arrangement))
   in
-  let t1 =
-    match fst width with
-    | Just w -> setWidth w t0
-    | None -> t0
-  in
+  let t1 = match fst width with | Just w -> setWidth w t0 | None -> t0 in
   let t2 =
     match fst d with
     | Just ch -> setDelimiter ch t1
@@ -308,8 +278,7 @@ fun readTable i =
   let rowCountAt = num (snd header) 1 in
   let withRows =
     times (fst rowCountAt) (snd rowCountAt) t6 (\at t ->
-      match readRow at with
-      | (r, next) -> (addRow r t, next))
+      match readRow at with | (r, next) -> (addRow r t, next))
   in
   let opCount = num (snd withRows) 1 in
   let withOps = times (fst opCount) (snd opCount) (fst withRows) (\at t -> readColumnOp at t) in
@@ -318,8 +287,7 @@ fun readTable i =
     times (fst constraintCount) (snd constraintCount) V.empty (\at acc ->
       match readConstraint at with
       | (c, next) -> (V.pushBack acc c, next))
-  in
-  (setConstraints (fst constraints) (fst withOps), snd constraints)
+  in (setConstraints (fst constraints) (fst withOps), snd constraints)
 
 -- --- checking -----------------------------------------------------------------------------
 
@@ -345,22 +313,22 @@ fun runCase i =
         match fst trimmed with
         | Just _ -> [text, trimFmt t, counts]
         | None -> [text, counts]
-      in
-      (want, got, snd summary)
+      in (want, got, snd summary)
 
 @cfg(test)
 fun check i n bad =
-  if i >= stringByteLength cases
-  then (n, bad)
+  if i >= stringByteLength cases then (n, bad)
   else
     match runCase i with
-    | (want, got, next) -> check next (n + 1) (if want == got then bad else V.pushBack bad (n, want, got))
+    | (want, got, next) ->
+        check next (n + 1) (if want == got then bad else V.pushBack bad (n, want, got))
 
 -- The number of tables, and the first few the port draws differently.
 @cfg(test)
 @test fun resultsMatchTheCrate () =
   match check 0 0 V.empty with
-  | (n, bad) -> assertEq (n, V.take bad 2) (1000, []) "tables the port and comfy-table draw differently"
+  | (n, bad) ->
+      assertEq (n, V.take bad 2) (1000, []) "tables the port and comfy-table draw differently"
 
 @cfg(test)
 @test fun examples () =
@@ -377,8 +345,12 @@ fun check i n bad =
       |> setWidth 24
       |> setContentArrangement ContentArrangement.Dynamic
       |> addRow (rowOf ["one two three four five six"])
-  in
-  assertEq
-    (lines wrapped)
-    ["┌──────────────────────┐", "│ one two three four   │", "│ five six             │", "└──────────────────────┘"]
-    "wrapped"
+  in assertEq
+       (lines wrapped)
+       [
+         "┌──────────────────────┐",
+         "│ one two three four   │",
+         "│ five six             │",
+         "└──────────────────────┘"
+       ]
+       "wrapped"
